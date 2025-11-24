@@ -1,112 +1,323 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { AutoResizingTextInput } from '@/components/AutoResizingTextInput';
+import { ImagePickerButton } from '@/components/ImagePickerButton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { useNotes } from '@/contexts/NotesContext';
+import { useThemeColor } from '@/hooks/use-theme-color';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-export default function TabTwoScreen() {
+export default function AddNoteScreen() {
+  const { noteId } = useLocalSearchParams<{ noteId?: string }>();
+  const { addNote, updateNote, getNoteById } = useNotes();
+
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [imageUri, setImageUri] = useState<string | undefined>(undefined);
+  const [titleError, setTitleError] = useState('');
+  const [contentError, setContentError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const backgroundColor = useThemeColor({}, 'background');
+  const tintColor = useThemeColor({}, 'tint');
+  const borderColor = useThemeColor({}, 'border');
+  const textColor = useThemeColor({}, 'text');
+
+  // Load existing note if editing
+  useEffect(() => {
+    if (noteId) {
+      const note = getNoteById(noteId);
+      if (note) {
+        setTitle(note.title);
+        setContent(note.content);
+        setImageUri(note.imageUri);
+      }
+    }
+  }, [noteId, getNoteById]);
+
+  const validateForm = (): boolean => {
+    let isValid = true;
+
+    if (!title.trim()) {
+      setTitleError('Title is required');
+      isValid = false;
+    } else if (title.trim().length < 3) {
+      setTitleError('Title must be at least 3 characters');
+      isValid = false;
+    } else {
+      setTitleError('');
+    }
+
+    if (!content.trim()) {
+      setContentError('Content is required');
+      isValid = false;
+    } else if (content.trim().length < 10) {
+      setContentError('Content must be at least 10 characters');
+      isValid = false;
+    } else {
+      setContentError('');
+    }
+
+    return isValid;
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const noteData = {
+        title: title.trim(),
+        content: content.trim(),
+        imageUri,
+      };
+
+      if (noteId) {
+        updateNote(noteId, noteData);
+        Alert.alert('Success', 'Note updated successfully!');
+      } else {
+        addNote(noteData);
+        Alert.alert('Success', 'Note created successfully!');
+      }
+
+      // Clear form
+      setTitle('');
+      setContent('');
+      setImageUri(undefined);
+      setTitleError('');
+      setContentError('');
+
+      // Navigate back to notes list
+      router.push('/');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (title || content || imageUri) {
+      Alert.alert(
+        'Discard Changes?',
+        'You have unsaved changes. Are you sure you want to discard them?',
+        [
+          { text: 'Keep Editing', style: 'cancel' },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => {
+              setTitle('');
+              setContent('');
+              setImageUri(undefined);
+              setTitleError('');
+              setContentError('');
+              router.push('/');
+            },
+          },
+        ]
+      );
+    } else {
+      router.push('/');
+    }
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.container, { backgroundColor }]}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <ThemedView style={styles.header}>
+          <ThemedText type="title" style={styles.headerTitle}>
+            {noteId ? 'Edit Note' : 'New Note'}
+          </ThemedText>
+        </ThemedView>
+
+        <View style={styles.form}>
+          {/* Title Input */}
+          <View style={styles.inputContainer}>
+            <ThemedText type="defaultSemiBold" style={styles.label}>
+              Title
             </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+            <TextInput
+              style={[
+                styles.titleInput,
+                {
+                  color: textColor,
+                  borderColor: titleError ? '#FF3B30' : borderColor,
+                  backgroundColor,
+                },
+              ]}
+              placeholder="Enter note title"
+              placeholderTextColor="#8E8E93"
+              value={title}
+              onChangeText={(text) => {
+                setTitle(text);
+                if (titleError) setTitleError('');
+              }}
+              maxLength={100}
+            />
+            {titleError ? (
+              <ThemedText style={styles.errorText}>{titleError}</ThemedText>
+            ) : null}
+          </View>
+
+          {/* Content Input */}
+          <View style={styles.inputContainer}>
+            <ThemedText type="defaultSemiBold" style={styles.label}>
+              Content
+            </ThemedText>
+            <AutoResizingTextInput
+              placeholder="Write your note here..."
+              placeholderTextColor="#8E8E93"
+              value={content}
+              onChangeText={(text) => {
+                setContent(text);
+                if (contentError) setContentError('');
+              }}
+              minHeight={150}
+              maxHeight={400}
+              style={[
+                {
+                  borderColor: contentError ? '#FF3B30' : borderColor,
+                },
+              ]}
+            />
+            {contentError ? (
+              <ThemedText style={styles.errorText}>{contentError}</ThemedText>
+            ) : null}
+          </View>
+
+          {/* Image Picker */}
+          <View style={styles.inputContainer}>
+            <ThemedText type="defaultSemiBold" style={styles.label}>
+              Image (Optional)
+            </ThemedText>
+            <ImagePickerButton
+              imageUri={imageUri}
+              onImageSelected={setImageUri}
+              onImageRemoved={() => setImageUri(undefined)}
+            />
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton, { borderColor }]}
+              onPress={handleCancel}
+              disabled={isSaving}
+            >
+              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.button,
+                styles.saveButton,
+                { backgroundColor: tintColor },
+                isSaving && styles.buttonDisabled,
+              ]}
+              onPress={handleSave}
+              disabled={isSaving}
+            >
+              <ThemedText style={styles.saveButtonText}>
+                {isSaving ? 'Saving...' : 'Save Note'}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
   },
-  titleContainer: {
+  scrollContent: {
+    flexGrow: 1,
+  },
+  header: {
+    padding: 20,
+    paddingTop: 60,
+    paddingBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 34,
+    fontWeight: 'bold',
+  },
+  form: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  inputContainer: {
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  titleInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 13,
+    marginTop: 4,
+  },
+  buttonContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
+    marginTop: 8,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    borderWidth: 2,
+    backgroundColor: 'transparent',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });
