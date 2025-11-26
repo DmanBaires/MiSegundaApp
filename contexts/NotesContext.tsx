@@ -1,5 +1,6 @@
 import { Note, NoteFormData } from '@/types/Note';
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 interface NotesContextType {
     notes: Note[];
@@ -14,6 +15,35 @@ const NotesContext = createContext<NotesContextType | undefined>(undefined);
 export function NotesProvider({ children }: { children: ReactNode }) {
     const [notes, setNotes] = useState<Note[]>([]);
 
+    useEffect(() => {
+        const loadNotes = async () => {
+            try {
+                const savedNotes = await AsyncStorage.getItem('notes');
+                if (savedNotes) {
+                    // We need to parse dates back from strings because JSON.stringify converts dates to strings
+                    const parsedNotes = JSON.parse(savedNotes).map((note: any) => ({
+                        ...note,
+                        createdAt: new Date(note.createdAt),
+                        updatedAt: new Date(note.updatedAt),
+                    }));
+                    setNotes(parsedNotes);
+                }
+            } catch (error) {
+                console.error('Failed to load notes:', error);
+            }
+        };
+
+        loadNotes();
+    }, []);
+
+    const saveNotes = async (newNotes: Note[]) => {
+        try {
+            await AsyncStorage.setItem('notes', JSON.stringify(newNotes));
+        } catch (error) {
+            console.error('Failed to save notes:', error);
+        }
+    };
+
     const addNote = (noteData: NoteFormData): Note => {
         const newNote: Note = {
             ...noteData,
@@ -22,22 +52,26 @@ export function NotesProvider({ children }: { children: ReactNode }) {
             updatedAt: new Date(),
         };
 
-        setNotes(prevNotes => [newNote, ...prevNotes]);
+        const updatedNotes = [newNote, ...notes];
+        setNotes(updatedNotes);
+        saveNotes(updatedNotes);
         return newNote;
     };
 
     const updateNote = (id: string, noteData: NoteFormData) => {
-        setNotes(prevNotes =>
-            prevNotes.map(note =>
-                note.id === id
-                    ? { ...note, ...noteData, updatedAt: new Date() }
-                    : note
-            )
+        const updatedNotes = notes.map(note =>
+            note.id === id
+                ? { ...note, ...noteData, updatedAt: new Date() }
+                : note
         );
+        setNotes(updatedNotes);
+        saveNotes(updatedNotes);
     };
 
     const deleteNote = (id: string) => {
-        setNotes(prevNotes => prevNotes.filter(note => note.id !== id));
+        const updatedNotes = notes.filter(note => note.id !== id);
+        setNotes(updatedNotes);
+        saveNotes(updatedNotes);
     };
 
     const getNoteById = (id: string): Note | undefined => {
