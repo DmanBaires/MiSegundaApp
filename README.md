@@ -169,9 +169,7 @@ This project fulfills all requirements from the "Trabajo Práctico Integrador":
 ## 🤖 AI Usage Declaration
 
 This project was developed with assistance from AI tools (Google Gemini) for:
-- Code structure and architecture planning
-- Component implementation guidance
-- TypeScript type definitions
+- General questions and code correction
 - React Native best practices
 - Documentation writing
 
